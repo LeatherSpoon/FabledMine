@@ -51,8 +51,9 @@ export function build(env) {
   // ── Stations ──────────────────────────────────────────────────────────────
   env._addWorkshopStation(-7, -3);      // Arc Smelter
   env._addConstructorStation(-3, -3);   // Component Assembler
-  env._addExtractorStation(3, -3);      // Advanced Fabricator
+  env._addExtractorStation(3, -3);      // Fabrication Bay (Advanced Fabricator)
   env._addAssemblyMatrixStation(7, -3); // Spatial 5×5 grid
+  env._addRefineryStation(0, -6);       // Extractors + processing-node chain
 
   // ── Connections ───────────────────────────────────────────────────────────
   env._addPortal(0, 9, 'spaceship', 0, 'Exit Workspace');

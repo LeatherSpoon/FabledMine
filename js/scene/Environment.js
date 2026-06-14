@@ -737,6 +737,45 @@ export class Environment {
     this._constructorStationPos = { x, z };
   }
 
+  _addRefineryStation(x, z) {
+    const g = new THREE.Group();
+    const baseGeo = new THREE.CylinderGeometry(1.0, 1.1, 0.18, 8);
+    const baseMat = createToonMaterial(0x0a2218);
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    base.position.y = 0.09;
+    base.castShadow = true;
+    g.add(base);
+
+    const bodyGeo = new THREE.BoxGeometry(1.5, 1.1, 0.9);
+    const bodyMat = createToonMaterial(0x0a2a1c);
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = 0.65;
+    body.castShadow = true;
+    addOutline(body, 0.05);
+    g.add(body);
+
+    // Twin refinery stacks
+    for (const sx of [-0.45, 0.45]) {
+      const stackGeo = new THREE.CylinderGeometry(0.18, 0.22, 1.0, 8);
+      const stackMat = createToonMaterial(0x115533);
+      const stack = new THREE.Mesh(stackGeo, stackMat);
+      stack.position.set(sx, 1.6, -0.1);
+      addOutline(stack, 0.04);
+      g.add(stack);
+    }
+
+    const indGeo = new THREE.OctahedronGeometry(0.16, 0);
+    const indMat = createToonMaterial(0x33dd88);
+    const ind = new THREE.Mesh(indGeo, indMat);
+    ind.position.y = 2.3;
+    g.add(ind);
+
+    g.position.set(x, 0, z);
+    this.group.add(g);
+    this._collisionCircles.push({ x, z, r: 1.0 });
+    this._refineryStationPos = { x, z };
+  }
+
   _addExtractorStation(x, z) {
     const g = new THREE.Group();
     const baseGeo = new THREE.CylinderGeometry(0.95, 1.05, 0.18, 8);
@@ -1256,6 +1295,8 @@ export class Environment {
   getConstructorStationPos() { return this._constructorStationPos || null; }
   getExtractorStationPos() { return this._extractorStationPos || null; }
   getAssemblyMatrixStationPos() { return this._assemblyMatrixStationPos || null; }
+  getRefineryStationPos() { return this._refineryStationPos || null; }
+  getDrillPos() { return this._drillPos || null; }
 
   /**
    * Tall glowing cyan beacon placed above the return portal so mobile players

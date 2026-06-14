@@ -103,7 +103,7 @@ This keeps the player center outside the block at all approach angles without th
 The OPT tab houses three subsystems instantiated in `main.js` and passed to `HUD` as a single `optimization` bag (`{ mathematician, timeWarp, modifiers }`):
 
 - **Mathematician** — paid time-limited window that reveals gains-per-PP across upgrades. `analyze({ stats, ascension, techTree })` returns sorted ROI rows.
-- **Modifiers** — opt-in trade-off toggles (max 2 active). Each modifier mutates `pp.setModifier()` and a `statsAccum` bag (`gatherMult`, `energyCostMult`, `damageMult`, `droneMult`) that *other systems must read* if they want the trade-off to apply (currently only PP rate is wired through; gather/damage/drone reads are TODOs for whichever system honors them).
+- **Modifiers** — opt-in trade-off toggles (max 2 active). Each modifier mutates `pp.setModifier()` and a `statsAccum` bag (`gatherMult`, `energyCostMult`, `damageMult`, `droneMult`). All four are now honored: `gatherMult`/`energyCostMult` are read inline in `main.js` (gather-duration sites + the `_energyCost()` helper); `damageMult`/`droneMult` are pushed into `CombatSystem.damageMult` / `DroneSystem.efficiencyMult` via `modifiers.onChange` in `main.js`.
 - **TimeWarp** — Quantum Crystals premium currency. Awarded on every 5th achievement, on ascension, and on >4hr offline returns. Spent on instant PP grants + temporary rate boosts.
 
 All three serialize/deserialize via `SaveSystem` (version 4+).
@@ -120,6 +120,9 @@ All three serialize/deserialize via `SaveSystem` (version 4+).
 | Character stats + derived values | `js/systems/StatsSystem.js` |
 | Crafting recipes + queue | `js/systems/CraftingSystem.js` |
 | Tool durability, material bags | `js/systems/InventorySystem.js` |
+| Passive ore extraction (Refinery) | `js/systems/ExtractorSystem.js` |
+| Processing-node chain (Refinery) | `js/systems/ProcessingNodeSystem.js` |
+| Spatial 5×5 schematic assembly | `js/systems/AssemblySystem.js` |
 | All UI panels + HUD | `js/ui/HUD.js` |
 | Combat turn logic | `js/systems/CombatSystem.js` |
 | Tech tree nodes + effects | `server/definitions/seedData.js` + `js/systems/TechTreeSystem.js` |

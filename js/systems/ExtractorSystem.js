@@ -90,7 +90,7 @@ export class ExtractorSystem {
   }
 
   deserialize(data) {
-    this._slots = (data.slots || []).map(s => ({ ...s }));
+    this._slots = (data?.slots || []).map(s => ({ ...s }));
     this._accum = {};
   }
 }

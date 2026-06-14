@@ -6,6 +6,9 @@ export class CombatSystem {
     this.pp = ppSystem;
     this.inventory = inventorySystem;
 
+    // Trade-off modifier hook (set from main.js via modifiers.onChange). 1 = neutral.
+    this.damageMult = 1;
+
     this.active = false;
     this.enemy = null;
     this._enemyInterval = null;
@@ -175,7 +178,7 @@ export class CombatSystem {
   // ── Player actions ─────────────────────────────────────────────────────────
   fight() {
     if (!this.active) return;
-    const dmg = this.stats.damage;
+    const dmg = Math.floor(this.stats.damage * this.damageMult);
     this._dealDamageToEnemy(dmg);
     this._log(`You attack for ${dmg} damage!`);
   }
@@ -193,7 +196,7 @@ export class CombatSystem {
     }
 
     if (!this.stats.spendFP(skill.fp)) { this._log('Not enough FP!'); return; }
-    const dmg = Math.floor(this.stats.damage * skill.mult);
+    const dmg = Math.floor(this.stats.damage * skill.mult * this.damageMult);
     this._dealDamageToEnemy(dmg);
     this._log(`${skill.label}! You deal ${dmg} damage.`);
     if (this.onFPUpdate) this.onFPUpdate(this.stats.currentFP, this.stats.maxFP);

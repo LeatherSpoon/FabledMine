@@ -96,7 +96,7 @@ function _makeIcon(key) {
 }
 
 export class HUD {
-  constructor(statsSystem, ppSystem, pedometerSystem, inventorySystem, craftingSystem, droneSystem, equipmentSystem, gameStats, achievements, minigame, ascension, autoCombat, drillSystem, techTree = null, mastery = null, syncClient = null, factorySystem = null, codexSystem = null, augmentationSystem = null, optimization = null, assemblySystem = null, tripartite = null) {
+  constructor(statsSystem, ppSystem, pedometerSystem, inventorySystem, craftingSystem, droneSystem, equipmentSystem, gameStats, achievements, minigame, ascension, autoCombat, drillSystem, techTree = null, mastery = null, syncClient = null, factorySystem = null, codexSystem = null, augmentationSystem = null, optimization = null, assemblySystem = null, tripartite = null, extractorSystem = null, processingNodes = null) {
     this.stats = statsSystem;
     this.pp = ppSystem;
     this.pedometer = pedometerSystem;
@@ -115,6 +115,8 @@ export class HUD {
     this.syncClient = syncClient;
     this.factory = factorySystem;
     this.assembly = assemblySystem;
+    this.extractor = extractorSystem;
+    this.processing = processingNodes;
     this.codex = codexSystem;
     this.augmentations = augmentationSystem;
     this.opt = optimization || {}; // { mathematician, timeWarp, modifiers }
@@ -454,7 +456,8 @@ export class HUD {
       'mastery-panel', 'achievements-panel', 'statistics-panel', 'stat-sidebar',
       'ascension-panel', 'drill-panel', 'codex-panel', 'augmentations-panel',
       'optimization-panel', 'allocation-panel', 'quest-panel',
-      'workshop-panel', 'constructor-panel', 'extractor-panel', 'assembly-matrix-panel',
+      'workshop-panel', 'constructor-panel', 'fabrication-panel', 'assembly-matrix-panel',
+      'refinery-panel',
     ];
     for (const id of ids) {
       if (id === exceptId) continue;
@@ -475,8 +478,9 @@ export class HUD {
       case 'ascension-panel': this._refreshAscension(); break;
       case 'workshop-panel': this._refreshWorkshop(); break;
       case 'constructor-panel': this._refreshConstructor(); break;
-      case 'extractor-panel': this._refreshExtractor(); break;
+      case 'fabrication-panel': this._refreshFabricationBay(); break;
       case 'assembly-matrix-panel': this._refreshAssemblyMatrix(); break;
+      case 'refinery-panel': this._refreshRefinery(); break;
       case 'codex-panel': this._refreshCodex(); break;
       case 'augmentations-panel': this._refreshAugmentations(); break;
       case 'construct-panel': this._refreshConstructPanel(); break;
@@ -1025,8 +1029,148 @@ export class HUD {
     this._renderMachineCard('constructor-contents', 'assembler', () => this._refreshConstructor());
   }
 
-  _refreshExtractor() {
-    this._renderMachineCard('extractor-contents', 'fabricator', () => this._refreshExtractor());
+  _refreshFabricationBay() {
+    this._renderMachineCard('fabrication-contents', 'fabricator', () => this._refreshFabricationBay());
+  }
+
+  _refreshRefinery() {
+    const el = document.getElementById('refinery-contents');
+    if (!el) return;
+    el.innerHTML = '';
+    this._renderExtractorSection(el);
+    this._renderProcessingSection(el);
+  }
+
+  // ── Refinery: Extractors ──────────────────────────────────────────────────
+  _renderExtractorSection(parent) {
+    const ex = this.extractor;
+    if (!ex) return;
+    const RATES = ex.constructor.RATES;
+
+    const heading = document.createElement('div');
+    heading.className = 'machine-header';
+    heading.innerHTML = `<span class="machine-title">Extractors (${ex.slotCount}/${ex.constructor.MAX_SLOTS})</span>`;
+    parent.appendChild(heading);
+
+    // Combined live yield across installed extractors
+    const rates = ex.getRates();
+    const rateStr = Object.entries(rates).map(([m, r]) => `+${(r * 60).toFixed(1)}/min ${_matLabel(m)}`).join(', ');
+    const yieldLine = document.createElement('div');
+    yieldLine.style.cssText = 'font-size:0.7rem;color:#ccaadd;margin:2px 0 6px;';
+    yieldLine.textContent = ex.slotCount > 0 ? rateStr : 'No extractors installed.';
+    parent.appendChild(yieldLine);
+
+    // Installed slots with remove buttons
+    ex.serialize().slots.forEach((slot, i) => {
+      const row = document.createElement('div');
+      row.className = 'machine-io';
+      const label = slot.type === 'advanced' ? 'Advanced Extractor' : 'Basic Extractor';
+      row.innerHTML = `<span>${label}</span>`;
+      const rm = document.createElement('button');
+      rm.className = 'btn-process';
+      rm.textContent = 'REMOVE';
+      rm.onclick = () => { ex.remove(i); this._refreshRefinery(); };
+      row.appendChild(rm);
+      parent.appendChild(row);
+    });
+
+    // Install buttons — one per extractor type, gated by owned units
+    const controls = document.createElement('div');
+    controls.className = 'machine-controls';
+    for (const type of Object.keys(RATES)) {
+      const itemKey = type === 'advanced' ? 'extractor_unit_adv' : 'extractor_unit';
+      const owned = this.inventory.materials[itemKey] || 0;
+      const btn = document.createElement('button');
+      btn.className = 'btn-automate';
+      btn.textContent = `INSTALL ${type === 'advanced' ? 'ADVANCED' : 'BASIC'} (${owned})`;
+      if (!ex.canInstall(type)) { btn.disabled = true; btn.style.opacity = '0.5'; }
+      btn.onclick = () => { if (ex.install(type)) this._refreshRefinery(); };
+      controls.appendChild(btn);
+    }
+    parent.appendChild(controls);
+  }
+
+  // ── Refinery: Processing Nodes ────────────────────────────────────────────
+  _renderProcessingSection(parent) {
+    const pn = this.processing;
+    if (!pn) return;
+    const DEFS = pn.constructor.NODE_DEFS;
+
+    const heading = document.createElement('div');
+    heading.className = 'machine-header';
+    heading.style.marginTop = '8px';
+    heading.innerHTML = `<span class="machine-title">Processing Nodes</span>`;
+    parent.appendChild(heading);
+
+    for (const [nodeType, def] of Object.entries(DEFS)) {
+      const state = pn.getState(nodeType);
+      const card = document.createElement('div');
+      card.className = 'machine-card';
+
+      const header = document.createElement('div');
+      header.className = 'machine-header';
+      const active = state.active ? 'Working' : (state.queue.length ? 'Queued' : 'Idle');
+      header.innerHTML = `<span class="machine-title">${def.label} (T${state.tier})</span>
+                          <span class="machine-status" style="color:${state.active ? '#00ffcc' : '#ffaa44'}">${active}</span>`;
+      card.appendChild(header);
+
+      const body = document.createElement('div');
+      body.className = 'machine-body';
+
+      const inStr = Object.entries(def.input).map(([k, v]) => `${v}× ${_matLabel(k)}`).join(', ');
+      const outStr = Object.entries(def.output).map(([k, v]) => `${v}× ${_matLabel(k)}`).join(', ');
+      const io = document.createElement('div');
+      io.className = 'machine-io';
+      io.innerHTML = `<span>${inStr} &rarr;</span><span>${outStr}</span>`;
+      body.appendChild(io);
+
+      // Progress bar (live-updated each frame via _tickRefinery)
+      const barWrap = document.createElement('div');
+      barWrap.className = 'progress-track';
+      const fill = document.createElement('div');
+      fill.className = 'progress-fill';
+      fill.id = `refinery-fill-${nodeType}`;
+      fill.style.width = state.active ? `${(state.active.progress / state.active.duration) * 100}%` : '0%';
+      barWrap.appendChild(fill);
+      body.appendChild(barWrap);
+      card.appendChild(body);
+
+      const controls = document.createElement('div');
+      controls.className = 'machine-controls';
+
+      const procBtn = document.createElement('button');
+      procBtn.className = 'btn-process';
+      procBtn.textContent = `PROCESS (${state.queue.length}/${pn.maxQueueSize})`;
+      if (!pn.canProcess(nodeType) || state.queue.length >= pn.maxQueueSize) {
+        procBtn.disabled = true; procBtn.style.opacity = '0.5';
+      }
+      procBtn.onclick = () => { if (pn.enqueue(nodeType)) this._refreshRefinery(); };
+      controls.appendChild(procBtn);
+
+      const upCost = pn.getUpgradeCost(nodeType);
+      if (upCost !== null) {
+        const upBtn = document.createElement('button');
+        upBtn.className = 'btn-automate';
+        upBtn.textContent = `UPGRADE (${upCost} PP)`;
+        if (this.pp.ppTotal < upCost) { upBtn.disabled = true; upBtn.style.opacity = '0.5'; }
+        upBtn.onclick = () => { if (pn.upgrade(nodeType)) this._refreshRefinery(); };
+        controls.appendChild(upBtn);
+      }
+
+      card.appendChild(controls);
+      parent.appendChild(card);
+    }
+  }
+
+  // Lightweight per-frame progress update for the open Refinery panel (no DOM rebuild).
+  _tickRefinery() {
+    if (!this.processing) return;
+    const DEFS = this.processing.constructor.NODE_DEFS;
+    for (const nodeType of Object.keys(DEFS)) {
+      const state = this.processing.getState(nodeType);
+      const fill = document.getElementById(`refinery-fill-${nodeType}`);
+      if (fill) fill.style.width = state.active ? `${(state.active.progress / state.active.duration) * 100}%` : '0%';
+    }
   }
 
   _refreshAssemblyMatrix() {

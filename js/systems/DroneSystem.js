@@ -35,6 +35,9 @@ export class DroneSystem {
     this.upgradeCost = 50; // PP to unlock next drone
     this.maxDrones = 5;
 
+    // Trade-off modifier hook (set from main.js via modifiers.onChange). 1 = neutral.
+    this.efficiencyMult = 1;
+
     this._missions = []; // active/completed missions
     this.onMissionComplete = null; // fn(missionResult)
   }
@@ -116,7 +119,7 @@ export class DroneSystem {
     const efficiency = drone?.efficiency || 1;
     const lootResult = {};
     for (const entry of zone.loot) {
-      const qty = Math.floor((entry.min + Math.random() * (entry.max - entry.min + 1)) * Math.max(1, efficiency * 0.5));
+      const qty = Math.floor((entry.min + Math.random() * (entry.max - entry.min + 1)) * Math.max(1, efficiency * this.efficiencyMult * 0.5));
       if (qty > 0) {
         this.inventory.addMaterial(entry.mat, qty);
         lootResult[entry.mat] = (lootResult[entry.mat] || 0) + qty;
@@ -141,7 +144,7 @@ export class DroneSystem {
       }
 
       if (!drone.assignedMaterial) continue;
-      const gatherTime = this.baseGatherTime / drone.efficiency;
+      const gatherTime = this.baseGatherTime / (drone.efficiency * this.efficiencyMult);
       drone.gatherTimer += delta;
       if (drone.gatherTimer >= gatherTime) {
         drone.gatherTimer -= gatherTime;
@@ -157,7 +160,7 @@ export class DroneSystem {
       assignedMaterial: d.assignedMaterial,
       efficiency: d.efficiency,
       gatherProgress: d.assignedMaterial
-        ? d.gatherTimer / (this.baseGatherTime / d.efficiency)
+        ? d.gatherTimer / (this.baseGatherTime / (d.efficiency * this.efficiencyMult))
         : 0,
       efficiencyUpgradeCost: this._efficiencyUpgradeCost(d.efficiency),
     }));

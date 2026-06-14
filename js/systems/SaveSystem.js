@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js';
 
-const SAVE_VERSION = 6;
+const SAVE_VERSION = 7;
 
 export class SaveSystem {
   constructor(systems) {
@@ -16,7 +16,7 @@ export class SaveSystem {
       achievements, minigame, ascension, autoCombat, drill,
       techTree, mastery, sync, factory, codex, augmentations,
       mathematician, timeWarp, modifiers, missionTracker, questSystem, assembly,
-      tripartite,
+      extractor, processingNodes, tripartite,
     } = this.systems;
 
     const data = {
@@ -104,6 +104,8 @@ export class SaveSystem {
       mastery: mastery ? mastery.serialize() : null,
       factory: factory ? factory.serialize() : null,
       assembly: assembly ? assembly.serialize() : null,
+      extractor: extractor ? extractor.serialize() : null,
+      processingNodes: processingNodes ? processingNodes.serialize() : null,
       codex: codex ? codex.serialize() : null,
       augmentations: augmentations ? augmentations.serialize() : null,
       sync: sync ? {
@@ -191,7 +193,7 @@ export class SaveSystem {
       achievements, minigame, ascension, autoCombat, drill,
       techTree, mastery, sync, factory, codex, augmentations,
       mathematician, timeWarp, modifiers, missionTracker, questSystem, assembly,
-      tripartite,
+      extractor, processingNodes, tripartite,
     } = this.systems;
 
     // Drill System
@@ -298,6 +300,8 @@ export class SaveSystem {
     if (mastery && data.mastery) mastery.deserialize(data.mastery);
     if (factory && data.factory) factory.deserialize(data.factory);
     if (assembly && data.assembly) assembly.deserialize(data.assembly);
+    if (extractor && data.extractor) extractor.deserialize(data.extractor);
+    if (processingNodes && data.processingNodes) processingNodes.deserialize(data.processingNodes);
     if (codex && data.codex) codex.load(data.codex);
     if (augmentations && data.augmentations) {
       augmentations.load(data.augmentations);

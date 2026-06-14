@@ -10,7 +10,8 @@ export const MENU_PANEL_IDS = [
   'pedometer-panel', 'tech-panel', 'mastery-panel', 'achievements-panel',
   'ascension-panel', 'codex-panel', 'augmentations-panel',
   'optimization-panel', 'allocation-panel', 'settings-panel', 'stat-sidebar',
-  'workshop-panel', 'constructor-panel', 'extractor-panel', 'assembly-matrix-panel',
+  'workshop-panel', 'constructor-panel', 'fabrication-panel', 'assembly-matrix-panel',
+  'refinery-panel',
 ];
 
 export function initMenuController({ hud, telemetry, env }) {

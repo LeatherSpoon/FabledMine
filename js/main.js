@@ -23,6 +23,8 @@ import { DrillSystem } from './systems/DrillSystem.js';
 import { AscensionSystem } from './systems/AscensionSystem.js';
 import { FactorySystem } from './systems/FactorySystem.js';
 import { AssemblySystem } from './systems/AssemblySystem.js';
+import { ExtractorSystem } from './systems/ExtractorSystem.js';
+import { ProcessingNodeSystem } from './systems/ProcessingNodeSystem.js';
 import { CONFIG } from './config.js';
 import { TelemetrySystem } from './TelemetrySystem.js';
 import { SyncClient } from './sync/SyncClient.js';
@@ -87,6 +89,8 @@ const drillSystem     = new DrillSystem(ppSystem, inventorySystem, statsSystem);
 const ascension       = new AscensionSystem(ppSystem);
 const factorySystem   = new FactorySystem(inventorySystem, ppSystem, statsSystem, pedometer);
 const assemblySystem  = new AssemblySystem(inventorySystem);
+const extractorSystem = new ExtractorSystem(inventorySystem);
+const processingNodes = new ProcessingNodeSystem(inventorySystem, ppSystem);
 const codexSystem     = new CodexSystem();
 const augSystem       = new AugmentationSystem();
 const mathematician   = new MathematicianSystem(ppSystem);
@@ -196,7 +200,8 @@ const hud = new HUD(
   inventorySystem, craftingSystem, droneSystem, equipmentSystem, gameStats,
   achievements, minigame, ascension, autoCombat, drillSystem,
   techTree, mastery, syncClient, factorySystem, codexSystem, augSystem,
-  { mathematician, timeWarp, modifiers }, assemblySystem, tripartite
+  { mathematician, timeWarp, modifiers }, assemblySystem, tripartite,
+  extractorSystem, processingNodes
 );
 const combatUI = new CombatUI(
   combatSystem, statsSystem, entityManager, player, inventorySystem, ppSystem
@@ -242,10 +247,22 @@ ascension.ascend = function () {
   return r;
 };
 
-// Refresh ROI table after each upgrade so values stay current
+// Push trade-off multipliers into the systems that honor them, and refresh the
+// ROI table so values stay current. gatherMult/energyCostMult are read inline
+// (this module scope); damageMult/droneMult are pushed into their systems.
 modifiers.onChange = () => {
+  combatSystem.damageMult = modifiers.damageMult;
+  droneSystem.efficiencyMult = modifiers.droneMult;
   const panel = document.getElementById('optimization-panel');
   if (panel && !panel.hidden) hud._refreshOptimization();
+};
+
+// Refresh the Refinery + inventory panels when a processing job finishes/queues.
+processingNodes.onNodeUpdate = () => {
+  const rp = document.getElementById('refinery-panel');
+  if (rp && !rp.hidden) hud._refreshRefinery();
+  const ip = document.getElementById('inventory-panel');
+  if (ip && !ip.hidden) hud._refreshInventory();
 };
 
 // Research Tree — wire purchase effects
@@ -396,6 +413,8 @@ const saveSystem = new SaveSystem({
   sync: syncClient,
   factory: factorySystem,
   assembly: assemblySystem,
+  extractor: extractorSystem,
+  processingNodes,
   codex: codexSystem,
   augmentations: augSystem,
   mathematician,
@@ -520,7 +539,7 @@ const { togglePanel } = initMenuController({ hud, telemetry, env });
 
 function _tryPlantSeed() {
   if (inventorySystem.materials.seed <= 0) return;
-  if (!statsSystem.spendEnergy(CONFIG.ENERGY_COST_PLANT)) {
+  if (!statsSystem.spendEnergy(_energyCost(CONFIG.ENERGY_COST_PLANT))) {
     hud.showInteractHint('Not enough energy to plant!');
     return;
   }
@@ -550,7 +569,9 @@ let _gatherType   = null;  // 'tree' | 'rock'
 let _gatherHintCooldown = 0;  // suppresses gather hints briefly after completion
 
 function _energyCost(base) {
-  return techTree?.owned.has('energyEfficiency') ? Math.max(1, base - 1) : base;
+  const afterTech = techTree?.owned.has('energyEfficiency') ? base - 1 : base;
+  // Frugal Circuits & other modifiers fold their energyCostMult in here.
+  return Math.max(1, Math.round(afterTech * modifiers.energyCostMult));
 }
 
 const SPECIALTY_TOOL_NAMES = {
@@ -655,7 +676,7 @@ function handleExtendedGather(delta) {
           statsSystem.spendEnergy(_energyCost(CONFIG.ENERGY_COST_TREE));
           _gatherTarget = _nearestTree;
           _gatherTimer = 0;
-          _gatherDuration = 2.5 * (techTree?.owned.has('swiftHarvest') ? 0.8 : 1) / statsSystem.gatherSpeedMult;
+          _gatherDuration = 2.5 * (techTree?.owned.has('swiftHarvest') ? 0.8 : 1) / (statsSystem.gatherSpeedMult * modifiers.gatherMult);
           _gatherType = 'tree';
         }
       }
@@ -683,7 +704,7 @@ function handleExtendedGather(delta) {
         statsSystem.spendEnergy(energyCost);
         _gatherTarget = _nearestRock;
         _gatherTimer = 0;
-        _gatherDuration = duration * (techTree?.owned.has('efficientMining') ? 0.75 : 1) / statsSystem.gatherSpeedMult;
+        _gatherDuration = duration * (techTree?.owned.has('efficientMining') ? 0.75 : 1) / (statsSystem.gatherSpeedMult * modifiers.gatherMult);
         _gatherType = 'rock';
       }
     } else {
@@ -928,11 +949,14 @@ function handleWorkspaceInteractions() {
   reg(env.getConstructorStationPos(), '[E/ACT] Constructor', () => {
     if (_actionCooldown <= 0) { togglePanel('constructor-panel'); _actionCooldown = 0.5; }
   });
-  reg(env.getExtractorStationPos(), '[E/ACT] Extractor Station', () => {
-    if (_actionCooldown <= 0) { togglePanel('extractor-panel'); _actionCooldown = 0.5; }
+  reg(env.getExtractorStationPos(), '[E/ACT] Fabrication Bay', () => {
+    if (_actionCooldown <= 0) { togglePanel('fabrication-panel'); _actionCooldown = 0.5; }
   });
   reg(env.getAssemblyMatrixStationPos(), '[E/ACT] Assembly Matrix', () => {
     if (_actionCooldown <= 0) { togglePanel('assembly-matrix-panel'); _actionCooldown = 0.5; }
+  });
+  reg(env.getRefineryStationPos(), '[E/ACT] Refinery', () => {
+    if (_actionCooldown <= 0) { togglePanel('refinery-panel'); _actionCooldown = 0.5; }
   });
 
   if (candidates.length === 0) return false;
@@ -975,15 +999,16 @@ function handleGathering(delta) {
       hud.showInteractHint(`Need ${SPECIALTY_TOOL_NAMES[nearestNode.requiredTool] ?? nearestNode.requiredTool} to gather ${nearestNode.materialType}`);
       return;
     }
-    if (statsSystem.currentEnergy >= CONFIG.ENERGY_COST_GATHER) {
+    const gatherCost = _energyCost(CONFIG.ENERGY_COST_GATHER);
+    if (statsSystem.currentEnergy >= gatherCost) {
       hud.showInteractHint(`[E/ACT] Gather ${nearestNode.materialType}`);
       if (keysDown.has('KeyE') || touchInput.actionPressed) {
-        statsSystem.spendEnergy(CONFIG.ENERGY_COST_GATHER);
+        statsSystem.spendEnergy(gatherCost);
         player.startGathering(nearestNode);
         telemetry.trackGather('start');
       }
     } else {
-      hud.showInteractHint(`Gather ${nearestNode.materialType} – need ${CONFIG.ENERGY_COST_GATHER} energy`);
+      hud.showInteractHint(`Gather ${nearestNode.materialType} – need ${gatherCost} energy`);
     }
     return;
   }
@@ -1113,10 +1138,12 @@ function gameLoop(now) {
   // Update drone gathering
   droneSystem.update(delta);
 
-  // Update factory
+  // Update factory + passive extraction/processing
   factorySystem.update(delta);
+  extractorSystem.update(delta);
+  processingNodes.update(delta);
   // Update progress bars for any open station panels
-  const stationPanels = ['workshop-panel', 'constructor-panel', 'extractor-panel'];
+  const stationPanels = ['workshop-panel', 'constructor-panel', 'fabrication-panel'];
   for (const panelId of stationPanels) {
     const panel = document.getElementById(panelId);
     if (!panel || panel.hidden) continue;
@@ -1126,6 +1153,9 @@ function gameLoop(now) {
       if (fill) fill.style.width = `${machine.progress * 100}%`;
     }
   }
+  // Live progress for the Refinery processing nodes (no DOM rebuild)
+  const refineryPanel = document.getElementById('refinery-panel');
+  if (refineryPanel && !refineryPanel.hidden) hud._tickRefinery();
 
   // Update crafting progress
   craftingSystem.update(delta);
