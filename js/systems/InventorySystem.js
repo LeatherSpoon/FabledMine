@@ -25,7 +25,11 @@ const MATERIAL_NAMES = [
   // Factory Components
   'logic_processor', 'mechanical_servo', 'energy_capacitor',
   // Factory Modules
-  'quantum_processor_ring', 'exo_servo_harness', 'aegis_capacitor_bank'
+  'quantum_processor_ring', 'exo_servo_harness', 'aegis_capacitor_bank',
+  // Processing chain (ProcessingNodeSystem outputs)
+  'iron_dust', 'alloy_bar', 'metal_strut', 'hull_plating', 'data_cable', 'micro_fastener',
+  // Assembly products
+  'extractor_unit', 'extractor_unit_adv', 'circuit_board', 'hull_segment'
 ];
 
 export class InventorySystem {

@@ -13,5 +13,7 @@ import './systems/craftingMasterySystem.test.js';
 import './systems/craftingSync.test.js';
 import './systems/saveProgressionState.test.js';
 import './systems/saveSystemProgression.test.js';
+import './systems/materialGraph.test.js';
+import './systems/processingExtractorSave.test.js';
 import './systems/telemetryProgression.test.js';
 import './systems/taskSystem.test.js';

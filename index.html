@@ -389,11 +389,11 @@
       </div>
     </div>
 
-    <!-- Extractor Station (advanced module fabrication) -->
-    <div id="extractor-panel" class="panel-overlay" hidden>
+    <!-- Fabrication Bay (advanced module fabrication — the Factory fabricator) -->
+    <div id="fabrication-panel" class="panel-overlay" hidden>
       <div class="panel-window">
-        <div class="panel-header">EXTRACTOR STATION <button class="panel-close" onclick="document.getElementById('extractor-panel').hidden=true">X</button></div>
-        <div id="extractor-contents" class="panel-body"></div>
+        <div class="panel-header">FABRICATION BAY <button class="panel-close" onclick="document.getElementById('fabrication-panel').hidden=true">X</button></div>
+        <div id="fabrication-contents" class="panel-body"></div>
       </div>
     </div>
 
@@ -402,6 +402,14 @@
       <div class="panel-window">
         <div class="panel-header">ASSEMBLY MATRIX <button class="panel-close" onclick="document.getElementById('assembly-matrix-panel').hidden=true">X</button></div>
         <div id="assembly-matrix-contents" class="panel-body"></div>
+      </div>
+    </div>
+
+    <!-- Refinery Station (passive extraction + processing-node chain) -->
+    <div id="refinery-panel" class="panel-overlay" hidden>
+      <div class="panel-window">
+        <div class="panel-header">REFINERY <button class="panel-close" onclick="document.getElementById('refinery-panel').hidden=true">X</button></div>
+        <div id="refinery-contents" class="panel-body"></div>
       </div>
     </div>
 
